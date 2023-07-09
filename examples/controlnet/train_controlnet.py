@@ -461,6 +461,16 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
+        "--train_data_json",
+        type=str,
+        default=None,
+        help=(
+            "directory for training data in the form of {'image': img_file, 'caption': 'prompt', 'conditioning_image': conditioning_image_file}"
+        ),
+    )
+    
+    
+    parser.add_argument(
         "--image_column", type=str, default="image", help="The column of the dataset containing the target image."
     )
     parser.add_argument(
@@ -592,14 +602,20 @@ def make_train_dataset(args, tokenizer, accelerator):
             args.dataset_config_name,
             cache_dir=args.cache_dir,
         )
-    else:
-        if args.train_data_dir is not None:
+    elif args.train_data_dir is not None:
             dataset = load_dataset(
                 args.train_data_dir,
                 cache_dir=args.cache_dir,
             )
         # See more about loading custom images at
         # https://huggingface.co/docs/datasets/v2.0.0/en/dataset_script
+    else:
+        if args.train_data_json is not None:
+            dataset = load_dataset(
+                'json',
+                data_files=args.train_data_json,
+                cache_dir=args.cache_dir,
+            )
 
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
@@ -673,11 +689,11 @@ def make_train_dataset(args, tokenizer, accelerator):
     )
 
     def preprocess_train(examples):
-        images = [image.convert("RGB") for image in examples[image_column]]
+        images = [Image.open(image).convert('RGB') for image in examples[image_column]]
         images = [image_transforms(image) for image in images]
 
-        conditioning_images = [image.convert("RGB") for image in examples[conditioning_image_column]]
-        conditioning_images = [conditioning_image_transforms(image) for image in conditioning_images]
+        conditioning_images = [Image.open(image).convert('RGB') for image in examples[conditioning_image_column]]
+        conditioning_images = [image_transforms(image) for image in conditioning_images]
 
         examples["pixel_values"] = images
         examples["conditioning_pixel_values"] = conditioning_images
